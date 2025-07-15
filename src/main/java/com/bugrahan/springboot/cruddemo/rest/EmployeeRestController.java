@@ -3,10 +3,13 @@ package com.bugrahan.springboot.cruddemo.rest;
 import com.bugrahan.springboot.cruddemo.dao.EmployeeDAO;
 import com.bugrahan.springboot.cruddemo.entity.Employee;
 import com.bugrahan.springboot.cruddemo.service.EmployeeService;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api")
@@ -14,9 +17,12 @@ public class EmployeeRestController {
 
     private EmployeeService employeeService;
 
+    private ObjectMapper objectMapper;
+
     @Autowired
-    public EmployeeRestController(EmployeeService employeeService){
+    public EmployeeRestController(EmployeeService employeeService, ObjectMapper objectMapper){
         this.employeeService=employeeService;
+        this.objectMapper=objectMapper;
     }
 
     @GetMapping("/employees")
@@ -79,13 +85,51 @@ public class EmployeeRestController {
         return "Silinen çalışanın ID'si(ID of deleted employee): " + employeeId;
     }
 
+    // ADD MAPPİNG FOR PATCH /employee/{empolyeeid}  - PATCH EMPLOYEE ..... PARTİAL UPDATE
 
+    @PatchMapping("/employees/{employeeId}")
+    public Employee patchEmployee(@PathVariable int employeeId ,
+                                  @RequestBody Map<String , Object> patchPayload){
 
+        Employee tempEmployee = employeeService.findById(employeeId);
+
+        // THROW EXEPTİON İF NULL
+        if (tempEmployee == null){
+            throw new RuntimeException("EMPLOYEE İD NOT FOUN----->İD BULUNAMADI" + employeeId);
+        }
+
+        // THROW EXEPTİON İF REQUEST BODY CONTAİND "İD" KEY
+        if ( patchPayload.containsKey("id")) {
+            throw new RuntimeException("EMPLOYEE İD NOT ALOOWED İN REQUEST BODY - " + employeeId);
+        }
+        
+        Employee patchEmployee = apply(patchPayload , tempEmployee);
+
+        Employee dbEmployee = employeeService.save(patchEmployee);
+
+        return dbEmployee;
 
 
 
 
     }
+
+    private Employee apply(Map<String, Object> patchPayload, Employee tempEmployee) {
+
+        // CONVERT EMPLOYEE OBJECT TO A JSON OBJECT NODE
+        ObjectNode employeeNode = objectMapper.convertValue(tempEmployee , ObjectNode.class);
+
+        // CONVERT THE patchPayload MAP TO A JSON OBJECT NODE
+        ObjectNode patchNode = objectMapper.convertValue(patchPayload , ObjectNode.class);
+
+        // MERGE THE PATCH UPDATES İNTO THE EMPLOYEE NODE
+        employeeNode.setAll(patchNode);
+
+        return objectMapper.convertValue(employeeNode, Employee.class);
+    }
+
+
+}
 
 
 
